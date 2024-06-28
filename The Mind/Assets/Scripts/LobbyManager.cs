@@ -10,15 +10,17 @@ using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
 using UnityEngine;
 
-public class GameLobby : MonoBehaviour
+public class LobbyManager : MonoBehaviour
 {
 
-    public static GameLobby Instance { get; private set; }
+    public static LobbyManager Instance { get; private set; }
 
     public event EventHandler OnLobbyAction;
 
     private Lobby lobby;
     private float heartbeatTimer;
+
+    private bool isNewPlayer;
 
     private void Start() {
         InitializeUnityAuthentication();
@@ -33,10 +35,13 @@ public class GameLobby : MonoBehaviour
         HandleLobbyHeartbeat();
     }
 
+    // Initialize Unity lobby authentication anonymously
     private async void InitializeUnityAuthentication() {
         if (UnityServices.State != ServicesInitializationState.Initialized) {
 
             InitializationOptions initializationOptions = new InitializationOptions();
+            
+            // Set profile for local testing
             initializationOptions.SetProfile(UnityEngine.Random.Range(0, 10000).ToString());
 
             await UnityServices.InitializeAsync(initializationOptions);
@@ -45,6 +50,7 @@ public class GameLobby : MonoBehaviour
         }
     }
 
+    // Lobby heartbeat to keep lobby active
     private async void HandleLobbyHeartbeat() {
         if(IsLobbyHost()) {
             heartbeatTimer -= Time.deltaTime;
@@ -61,16 +67,21 @@ public class GameLobby : MonoBehaviour
         return lobby != null && lobby.HostId == AuthenticationService.Instance.PlayerId;
     }
 
-    public async void CreateLobby() {
+    public async void CreateLobby(string playerName) {
         try {
+            // Set lobby parameters
             string lobbyName = "new lobby";
-            int maxPlayers = 8;
+            int maxPlayers = 8;                                     
             CreateLobbyOptions options = new CreateLobbyOptions();
             options.IsPrivate = true;
 
+            // Create lobby
             lobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, maxPlayers, options);
+            UpdatePlayerData(playerName);
+            
+            // Callbacks for lobby events
             var callbacks = new LobbyEventCallbacks();
-            callbacks.PlayerJoined += Callbacks_PlayerJoined;
+            callbacks.PlayerDataAdded += Callbacks_PlayerDataAdded;
             callbacks.PlayerLeft += Callbacks_PlayerLeft;
             try {
                 var lobbyEvents = await Lobbies.Instance.SubscribeToLobbyEventsAsync(lobby.Id, callbacks);
@@ -78,27 +89,23 @@ public class GameLobby : MonoBehaviour
                 Debug.Log(e);
             }
 
-            MultiplayerGameManager.Instance.StartHost();
-            
-            OnLobbyAction?.Invoke(this, EventArgs.Empty);
+            NetworkManager.Singleton.StartHost();
+
         }catch (LobbyServiceException e) {
             Debug.Log(e);
         }
     }
 
-    private void Callbacks_PlayerLeft(List<int> obj) {
-        UpdateLobby();
-    }
-
-    private void Callbacks_PlayerJoined(List<LobbyPlayerJoined> obj) {
-        UpdateLobby();
-    }
-
-    public async void JoinWithCode(string lobbyCode) {
+    public async void JoinWithCode(string lobbyCode, string playerName) {
         try {
+            // Join lobby with code
             lobby = await LobbyService.Instance.JoinLobbyByCodeAsync(lobbyCode);
+            
+            UpdatePlayerData(playerName);
+
+            // Callback for lobby events
             var callbacks = new LobbyEventCallbacks();
-            callbacks.PlayerJoined += Callbacks_PlayerJoined;
+            callbacks.PlayerDataAdded += Callbacks_PlayerDataAdded;
             callbacks.PlayerLeft += Callbacks_PlayerLeft;
             try {
                 var lobbyEvents = await Lobbies.Instance.SubscribeToLobbyEventsAsync(lobby.Id, callbacks);
@@ -106,13 +113,44 @@ public class GameLobby : MonoBehaviour
                 Debug.Log(e);
             }
 
-            MultiplayerGameManager.Instance.StartClient();
+            NetworkManager.Singleton.StartClient();
 
-            OnLobbyAction?.Invoke(this, EventArgs.Empty);
         } catch (LobbyServiceException e) {
             Debug.Log(e);
         }
     }
+
+    private void Callbacks_PlayerDataAdded(Dictionary<int, Dictionary<string, ChangedOrRemovedLobbyValue<PlayerDataObject>>> obj) {
+        UpdateLobby();
+    }
+
+    // Update lobby when players join/leave
+    private void Callbacks_PlayerLeft(List<int> obj) {
+        UpdateLobby();
+    }
+
+    public async void UpdatePlayerData(string playerName) {
+        try {
+            UpdatePlayerOptions options = new UpdatePlayerOptions();
+            options.Data = new Dictionary<string, PlayerDataObject>(){
+                {
+                    "PlayerName", new PlayerDataObject(
+                        visibility: PlayerDataObject.VisibilityOptions.Public,
+                        value: playerName)
+                },
+            };
+
+            string playerId = AuthenticationService.Instance.PlayerId;
+
+            lobby = await LobbyService.Instance.UpdatePlayerAsync(lobby.Id, playerId, options);
+
+            UpdateLobby();
+
+        } catch (LobbyServiceException e) {
+            Debug.Log(e);
+        }
+    }
+
 
     public async void CloseLobby() {
         try {
@@ -135,6 +173,7 @@ public class GameLobby : MonoBehaviour
     public async void UpdateLobby() {
         try {
             lobby = await LobbyService.Instance.GetLobbyAsync(lobby.Id);
+
             OnLobbyAction?.Invoke(this, EventArgs.Empty);
         } catch (LobbyServiceException e) {
             Debug.Log(e);

@@ -21,22 +21,19 @@ public class LobbyUI : BaseUI
     [SerializeField] private TMP_InputField joinCodeInputField;
     [SerializeField] private TMP_InputField playerNameInputField;
 
-    private void Start() {
-        GameLobby.Instance.OnLobbyAction += GameLobby_OnLobbyAction;
-    }
-
-    private void GameLobby_OnLobbyAction(object sender, System.EventArgs e) {
-        Hide();
-        inLobbyUI.Show();
-    }
-
     private void Awake() {
         hostLobbyButton.onClick.AddListener(() => {
-            GameLobby.Instance.CreateLobby();
+            LobbyManager.Instance.CreateLobby(playerNameInputField.text);
+
+            Hide();
+            inLobbyUI.Show();
         });
         
         joinLobbyButton.onClick.AddListener(() => {
-            GameLobby.Instance.JoinWithCode(joinCodeInputField.text);
+            LobbyManager.Instance.JoinWithCode(joinCodeInputField.text, playerNameInputField.text);
+
+            Hide();
+            inLobbyUI.Show();
         });
 
         quitButton.onClick.AddListener(() => {

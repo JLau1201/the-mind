@@ -5,10 +5,14 @@ using UnityEngine;
 public class BaseUI : MonoBehaviour
 {
     public void Show() {
-        gameObject.SetActive(true);
+        CanvasGroup canvasGroup = GetComponent<CanvasGroup>();
+        canvasGroup.alpha = 1.0f;
+        canvasGroup.interactable = true;
     }
 
     public void Hide() {
-        gameObject.SetActive(false);
+        CanvasGroup canvasGroup = GetComponent<CanvasGroup>();
+        canvasGroup.alpha = 0.0f;
+        canvasGroup.interactable = false;
     }
 }

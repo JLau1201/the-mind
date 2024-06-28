@@ -18,36 +18,41 @@ public class InLobbyUI : BaseUI
 
     [Header("TextFields")]
     [SerializeField] private TextMeshProUGUI playerJoinedCountText;
+    [SerializeField] private TextMeshProUGUI startButtonText;
     [SerializeField] private TMP_InputField lobbyCodeInputField;
 
     private Lobby lobby;
 
     private void Start() {
-        GameLobby.Instance.OnLobbyAction += GameLobby_OnLobbyAction;
+        LobbyManager.Instance.OnLobbyAction += GameLobby_OnLobbyAction;
         Hide();
     }
 
     private void GameLobby_OnLobbyAction(object sender, System.EventArgs e) {
-        lobby = GameLobby.Instance.GetLobby();
+        lobby = LobbyManager.Instance.GetLobby();
         lobbyCodeInputField.text = lobby.LobbyCode;
-        playerJoinedCountText.text = lobby.Players.Count + "/8";
+        playerJoinedCountText.text = lobby.Players.Count + "/" + lobby.MaxPlayers;
+
+        if (!LobbyManager.Instance.IsLobbyHost()) {
+            startButton.interactable = false;
+            startButtonText.color = new Color(startButtonText.color.r, startButtonText.color.g, startButtonText.color.b, .5f);
+        }
     }
 
     private void Awake() {
         backButton.onClick.AddListener(() => {
             Hide();
             lobbyUI.Show();
-            MultiplayerGameManager.Instance.Disconnect();
 
-            if (GameLobby.Instance.IsLobbyHost()) {
-                GameLobby.Instance.CloseLobby();
+            if (LobbyManager.Instance.IsLobbyHost()) {
+                LobbyManager.Instance.CloseLobby();
             } else {
-                GameLobby.Instance.LeaveLobby();
+                LobbyManager.Instance.LeaveLobby();
             }
         });
 
         startButton.onClick.AddListener(() => {
-            SceneLoader.LoadNetwork(SceneLoader.Scene.Game);
+
         });
     }
 }
