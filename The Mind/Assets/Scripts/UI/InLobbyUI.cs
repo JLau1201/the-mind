@@ -18,6 +18,7 @@ public class InLobbyUI : BaseUI
 
     [Header("TextFields")]
     [SerializeField] private TextMeshProUGUI playerJoinedCountText;
+    [SerializeField] private TextMeshProUGUI startButtonText;
     [SerializeField] private TMP_InputField lobbyCodeInputField;
 
     private Lobby lobby;
@@ -31,6 +32,11 @@ public class InLobbyUI : BaseUI
         lobby = GameLobby.Instance.GetLobby();
         lobbyCodeInputField.text = lobby.LobbyCode;
         playerJoinedCountText.text = lobby.Players.Count + "/8";
+
+        if (!GameLobby.Instance.IsLobbyHost()) {
+            startButton.interactable = false;
+            startButtonText.color = new Color(startButtonText.color.r, startButtonText.color.g, startButtonText.color.b, .5f);
+        }
     }
 
     private void Awake() {

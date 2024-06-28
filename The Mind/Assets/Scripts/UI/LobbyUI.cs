@@ -23,6 +23,11 @@ public class LobbyUI : BaseUI
 
     private void Start() {
         GameLobby.Instance.OnLobbyAction += GameLobby_OnLobbyAction;
+
+        playerNameInputField.text = MultiplayerGameManager.Instance.GetPlayerName();
+        playerNameInputField.onValueChanged.AddListener((string newText) => {
+            MultiplayerGameManager.Instance.SetPlayerName(newText);
+        });
     }
 
     private void GameLobby_OnLobbyAction(object sender, System.EventArgs e) {
