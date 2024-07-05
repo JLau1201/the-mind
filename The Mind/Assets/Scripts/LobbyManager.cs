@@ -1,17 +1,22 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Xml.Serialization;
+using System.Threading.Tasks;
 using Unity.Netcode;
+using Unity.Netcode.Transports.UTP;
+using Unity.Networking.Transport.Relay;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Lobbies;
 using Unity.Services.Lobbies.Models;
+using Unity.Services.Relay;
+using Unity.Services.Relay.Models;
 using UnityEngine;
 
 public class LobbyManager : MonoBehaviour
 {
+
+    private const string KEY_RELAY_JOIN_CODE = "RelayJoinCode";
 
     public static LobbyManager Instance { get; private set; }
 
@@ -67,18 +72,62 @@ public class LobbyManager : MonoBehaviour
         return lobby != null && lobby.HostId == AuthenticationService.Instance.PlayerId;
     }
 
+    private async Task<Allocation> AllocateRelay() {
+        try {
+            Allocation allocation = await RelayService.Instance.CreateAllocationAsync(MultiplayerManager.Instance.GetMaxPlayerCount() - 1);
+
+            return allocation;
+        } catch (RelayServiceException e) {
+            Debug.Log(e);
+
+            return default;
+        }
+    }
+
+    private async Task<string> GetRelayJoinCode(Allocation allocation) {
+        try {
+            string relayJoinCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
+            return relayJoinCode;
+        } catch (RelayServiceException e) {
+            Debug.Log(e);
+            return default;
+        }
+    }
+
+    private async Task<JoinAllocation> JoinRelay(string joinCode) {
+        try {
+            JoinAllocation joinAllocation = await RelayService.Instance.JoinAllocationAsync(joinCode);
+            return joinAllocation;
+        } catch (RelayServiceException e) {
+            Debug.Log(e);
+            return default;
+        }
+    }
+
     public async void CreateLobby(string playerName) {
         try {
             // Set lobby parameters
             string lobbyName = "new lobby";
-            int maxPlayers = 8;                                     
+            int maxPlayers = MultiplayerManager.Instance.GetMaxPlayerCount();
             CreateLobbyOptions options = new CreateLobbyOptions();
             options.IsPrivate = true;
 
             // Create lobby
             lobby = await LobbyService.Instance.CreateLobbyAsync(lobbyName, maxPlayers, options);
             UpdatePlayerData(playerName);
-            
+
+            Allocation allocation = await AllocateRelay();
+            string relayJoinCode = await GetRelayJoinCode(allocation);
+
+            NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(new RelayServerData(allocation, "dtls"));
+
+
+            UpdateLobbyOptions newOptions = new UpdateLobbyOptions();
+            newOptions.Data = new Dictionary<string, DataObject> {
+                {KEY_RELAY_JOIN_CODE, new DataObject(DataObject.VisibilityOptions.Member, relayJoinCode) }
+            };
+            await LobbyService.Instance.UpdateLobbyAsync(lobby.Id, newOptions);
+
             // Callbacks for lobby events
             var callbacks = new LobbyEventCallbacks();
             callbacks.PlayerDataAdded += Callbacks_PlayerDataAdded;
@@ -100,8 +149,14 @@ public class LobbyManager : MonoBehaviour
         try {
             // Join lobby with code
             lobby = await LobbyService.Instance.JoinLobbyByCodeAsync(lobbyCode);
-            
+
+            string relayJoinCode = lobby.Data[KEY_RELAY_JOIN_CODE].Value;
+
             UpdatePlayerData(playerName);
+
+            JoinAllocation joinAllocation = await JoinRelay(relayJoinCode);
+
+            NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(new RelayServerData(joinAllocation, "dtls"));
 
             // Callback for lobby events
             var callbacks = new LobbyEventCallbacks();
@@ -156,6 +211,7 @@ public class LobbyManager : MonoBehaviour
         try {
             await LobbyService.Instance.DeleteLobbyAsync(lobby.Id);
             lobby = null;
+            NetworkManager.Singleton.Shutdown();
         } catch (LobbyServiceException e) {
             Debug.Log(e);
         }
@@ -165,6 +221,7 @@ public class LobbyManager : MonoBehaviour
         try {
             string playerId = AuthenticationService.Instance.PlayerId;
             await LobbyService.Instance.RemovePlayerAsync(lobby.Id, playerId);
+            NetworkManager.Singleton.Shutdown();
         } catch (LobbyServiceException e) {
             Debug.Log(e);
         }

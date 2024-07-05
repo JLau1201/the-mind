@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using Unity.Netcode;
 using Unity.Services.Lobbies.Models;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -33,6 +34,10 @@ public class InLobbyUI : BaseUI
         lobbyCodeInputField.text = lobby.LobbyCode;
         playerJoinedCountText.text = lobby.Players.Count + "/" + lobby.MaxPlayers;
 
+        if(MultiplayerManager.Instance.GetPlayerId() == 0) {
+            MultiplayerManager.Instance.SetPlayerId(lobby.Players.Count);
+        }
+
         if (!LobbyManager.Instance.IsLobbyHost()) {
             startButton.interactable = false;
             startButtonText.color = new Color(startButtonText.color.r, startButtonText.color.g, startButtonText.color.b, .5f);
@@ -52,7 +57,12 @@ public class InLobbyUI : BaseUI
         });
 
         startButton.onClick.AddListener(() => {
+            MultiplayerManager.Instance.SetIsTimerOn(Settings.Instance.GetIsTimerOn());
+            MultiplayerManager.Instance.SetGameTimer(Settings.Instance.GetGameTimer());
+            MultiplayerManager.Instance.SetCardAmount(Settings.Instance.GetCardAmount());
+            MultiplayerManager.Instance.SetNumPlayers(lobby.Players.Count);
 
+            SceneLoader.LoadSceneNetwork(SceneLoader.Scene.Game);
         });
     }
 }

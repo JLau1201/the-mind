@@ -7,6 +7,8 @@ using UnityEngine.UI;
 
 public class Settings : NetworkBehaviour
 {
+    public static Settings Instance { get; private set; }
+
     [Header("TextFields")]
     [SerializeField] private TextMeshProUGUI timerNumberText;
     [SerializeField] private TextMeshProUGUI cardNumberText;
@@ -18,9 +20,10 @@ public class Settings : NetworkBehaviour
     [SerializeField] private Button cardAddButton;
     [SerializeField] private Toggle timerOnToggle;
 
-    private float gameTimer = 60;
-    private float cardAmount = 1;
-    private float timerIncrement = 10f;
+    private NetworkVariable<int> gameTimer = new NetworkVariable<int>(60);
+    private NetworkVariable<int> cardAmount = new NetworkVariable<int>(1);
+    private NetworkVariable<bool> isTimerOn = new NetworkVariable<bool>(false);
+    private int timerIncrement = 10;
 
     private void Start() {
         LobbyManager.Instance.OnLobbyAction += GameLobby_OnLobbyAction;
@@ -36,61 +39,69 @@ public class Settings : NetworkBehaviour
         }
     }
 
-    private void Awake() {
-        timerMinusButton.onClick.AddListener(() => {
-            UpdateTimeClientRpc(-1);
-        });
-        
-        timerAddButton.onClick.AddListener(() => {
-            UpdateTimeClientRpc(1);
-        });
-        
-        cardMinusButton.onClick.AddListener(() => {
-            UpdateCardAmountClientRpc(-1);
-        });
-        
-        cardAddButton.onClick.AddListener(() => {
-            UpdateCardAmountClientRpc(1);
-        });
+    public override void OnNetworkSpawn() {
+        base.OnNetworkSpawn();
+        if (IsServer) {
+            timerMinusButton.onClick.AddListener(() => {
+                if (gameTimer.Value > 10) {
+                    gameTimer.Value -= timerIncrement;
+                }
+                timerNumberText.text = gameTimer.Value.ToString();
+            });
 
-        timerOnToggle.onValueChanged.AddListener(delegate {
-            if (LobbyManager.Instance.IsLobbyHost()) {
-                timerMinusButton.interactable = !timerMinusButton.interactable;
-                timerAddButton.interactable = !timerAddButton.interactable;
-            }
-            UpdateTimerToggleClientRpc();
-        });
-    }
+            timerAddButton.onClick.AddListener(() => {
+                gameTimer.Value += timerIncrement;
+                timerNumberText.text = gameTimer.Value.ToString();
+            });
 
-    [ClientRpc]
-    private void UpdateTimeClientRpc(int sign) {
-        if(sign < 0 && gameTimer > 10) {
-            gameTimer -= timerIncrement;
-        } else if(sign > 0){
-            gameTimer += timerIncrement;
-        }
-        timerNumberText.text = gameTimer.ToString();
-    }
+            cardMinusButton.onClick.AddListener(() => {
+                if(cardAmount.Value > 1) {
+                    cardAmount.Value--;
+                }
+                cardNumberText.text = cardAmount.Value.ToString();
+            });
 
-    [ClientRpc]
-    private void UpdateCardAmountClientRpc(int sign) {
-        if(sign < 0 && cardAmount > 1) {
-            cardAmount --;
-        } else if(sign > 0 && cardAmount < 8) {
-            cardAmount++;
-        }
-        cardNumberText.text = cardAmount.ToString();
-    }
+            cardAddButton.onClick.AddListener(() => {
+                if(cardAmount.Value < 8) {
+                    cardAmount.Value++;
+                }
+                cardNumberText.text = cardAmount.Value.ToString();
+            });
 
-    [ClientRpc]
-    private void UpdateTimerToggleClientRpc() {
-        if (!LobbyManager.Instance.IsLobbyHost()) {
-            timerOnToggle.isOn = !timerOnToggle.isOn;
-        }
-        if (timerOnToggle.isOn) {
-            timerNumberText.color = new Color(0, 0, 0, 1f);
+            timerOnToggle.onValueChanged.AddListener(delegate {
+                if (LobbyManager.Instance.IsLobbyHost()) {
+                    timerMinusButton.interactable = !timerMinusButton.interactable;
+                    timerAddButton.interactable = !timerAddButton.interactable;
+                }
+                isTimerOn.Value = timerOnToggle.isOn;
+            });
         } else {
-            timerNumberText.color = new Color(0, 0, 0, .5f);
+            gameTimer.OnValueChanged += (oldVal, newVal) => {
+                timerNumberText.text = newVal.ToString();
+            };
+
+            cardAmount.OnValueChanged += (oldVal, newVal) => {
+                cardNumberText.text = newVal.ToString();
+            };
+            isTimerOn.OnValueChanged += (oldVal, newVal) => {
+                timerOnToggle.isOn = newVal;
+            };
         }
+    }
+
+    private void Awake() {
+        Instance = this;
+    }
+
+    public int GetGameTimer() {
+        return gameTimer.Value;
+    }
+
+    public int GetCardAmount() {
+        return cardAmount.Value;
+    }
+
+    public bool GetIsTimerOn() {
+        return isTimerOn.Value;
     }
 }
