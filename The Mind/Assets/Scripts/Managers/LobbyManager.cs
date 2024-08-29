@@ -94,7 +94,7 @@ public class LobbyManager : MonoBehaviour {
             string relayJoinCode = await GetRelayJoinCode(allocation);
 
             // Relay Server Stuff
-            NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(new RelayServerData(allocation, "dtls"));
+            NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(new RelayServerData(allocation, "wss"));
             UpdateLobbyOptions newOptions = new UpdateLobbyOptions();
             newOptions.Data = new Dictionary<string, DataObject> {
                 {KEY_RELAY_JOIN_CODE, new DataObject(DataObject.VisibilityOptions.Member, relayJoinCode) }
@@ -131,7 +131,7 @@ public class LobbyManager : MonoBehaviour {
             string relayJoinCode = lobby.Data[KEY_RELAY_JOIN_CODE].Value;
             JoinAllocation joinAllocation = await JoinRelay(relayJoinCode);
             // Relay server stuff
-            NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(new RelayServerData(joinAllocation, "dtls"));
+            NetworkManager.Singleton.GetComponent<UnityTransport>().SetRelayServerData(new RelayServerData(joinAllocation, "wss"));
 
             // Callback for lobby events
             var callbacks = new LobbyEventCallbacks();
