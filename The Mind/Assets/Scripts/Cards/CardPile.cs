@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
@@ -6,15 +7,35 @@ using UnityEngine.UI;
 
 public class CardPile : NetworkBehaviour
 {
-    [SerializeField] private CardHolder cardHolder;
-    [SerializeField] private Transform cardPrefab;
+    public static CardPile Instance { get; private set; }
 
-    private void Start() {
-        cardHolder.OnPilePlaced += CardHolder_OnPilePlaced;
+    public event EventHandler<OnCardPlacedEventArgs> onCardPlaced;
+    public class OnCardPlacedEventArgs : EventArgs {
+        public int cardNumber;
     }
 
-    private void CardHolder_OnPilePlaced(object sender, CardHolder.OnPilePlacedEventArgs e) {
-        SpawnCardServerRpc(e.cardNumber);
+    [SerializeField] private CardHolder cardHolder;
+    [SerializeField] private Transform cardPrefab;
+    [SerializeField] private Button placeCardButton;
+
+    private Card placedCard;
+
+    private void Awake() {
+        Instance = this;
+        placeCardButton.onClick.AddListener(() => {
+            placedCard = TheMindManager.Instance.GetSelectedCard();
+            if(placedCard != null) {
+                int cardNumber = placedCard.GetCardNumber();
+
+                Destroy(placedCard.gameObject);
+                TheMindManager.Instance.SetSelectedCard(null);
+                SpawnCardServerRpc(cardNumber);
+
+                onCardPlaced?.Invoke(this, new OnCardPlacedEventArgs {
+                    cardNumber = cardNumber,
+                });
+            }
+        });
     }
 
     [ServerRpc(RequireOwnership = false)]

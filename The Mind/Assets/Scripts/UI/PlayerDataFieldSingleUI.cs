@@ -10,6 +10,8 @@ public class PlayerDataFieldSingleUI : MonoBehaviour
     [SerializeField] private TextMeshProUGUI playerNameText;
 
     public void SetPlayerDataField(string playerName) {
+        TextMeshProUGUI textMeshProUGUI = GetComponentInChildren<TextMeshProUGUI>();
+        textMeshProUGUI.enabled = true;
         playerNameText.text = playerName;
     }
 }

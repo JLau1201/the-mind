@@ -1,53 +1,75 @@
-using System.Collections;
-using System.Collections.Generic;
 using TMPro;
+using Unity.Netcode;
+using Unity.Services.Lobbies.Models;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class LobbyUI : BaseUI
 {
+
     [Header("UIs")]
-    [SerializeField] private InLobbyUI inLobbyUI;
+    [SerializeField] private PreLobbyUI preLobbyUI;
 
     [Header("Buttons")]
-    [SerializeField] private Button hostLobbyButton;
-    [SerializeField] private Button joinLobbyButton;
-    [SerializeField] private Button quitButton;
+    [SerializeField] private Button backButton;
+    [SerializeField] private Button startButton;
 
     [Header("TextFields")]
-    [SerializeField] private TextMeshProUGUI joinLobbyButtonText;
+    [SerializeField] private TextMeshProUGUI playerJoinedCountText;
+    [SerializeField] private TextMeshProUGUI numCardsText;
 
     [Header("InputFields")]
-    [SerializeField] private TMP_InputField joinCodeInputField;
-    [SerializeField] private TMP_InputField playerNameInputField;
+    [SerializeField] private TMP_InputField lobbyCode;
 
-    private void Awake() {
-        hostLobbyButton.onClick.AddListener(() => {
-            LobbyManager.Instance.CreateLobby(playerNameInputField.text);
+    [Header("Transforms")]
+    [SerializeField] private Transform playerDataSingle;
+    [SerializeField] private Transform playerDataField;
 
-            Hide();
-            inLobbyUI.Show();
-        });
-        
-        joinLobbyButton.onClick.AddListener(() => {
-            LobbyManager.Instance.JoinWithCode(joinCodeInputField.text, playerNameInputField.text);
+    [Header("Slieders")]
+    [SerializeField] private Slider slider;
 
-            Hide();
-            inLobbyUI.Show();
-        });
+    private Lobby lobby;
 
-        quitButton.onClick.AddListener(() => {
-            Application.Quit();
-        });
+    private void Start() {
+        LobbyManager.Instance.OnLobbyUpdated += LobbyManager_OnLobbyUpdated;
+        Hide();
     }
 
-    private void Update() {
-        if(joinCodeInputField.text.Length == 6) {
-            joinLobbyButton.interactable = true;
-            joinLobbyButtonText.color = new Color(joinLobbyButtonText.color.r, joinLobbyButtonText.color.g, joinLobbyButtonText.color.b, 1.0f);
-        } else {
-            joinLobbyButton.interactable = false;
-            joinLobbyButtonText.color = new Color(joinLobbyButtonText.color.r, joinLobbyButtonText.color.g, joinLobbyButtonText.color.b, 0.5f);
+    private void Awake() {
+        backButton.onClick.AddListener(() => {
+            LobbyManager.Instance.LeaveLobby();
+            preLobbyUI.Show();
+            Hide();
+        });
+
+        startButton.onClick.AddListener(() => {
+            MultiplayerManager.Instance.SetCardAmount((int)slider.value);
+            SceneLoader.LoadSceneNetwork(SceneLoader.Scene.Game);
+        });
+
+        slider.onValueChanged.AddListener(delegate { UpdateNumCardsTextClientRpc(slider.value); });
+    }
+
+    [ClientRpc]
+    private void UpdateNumCardsTextClientRpc(float numCards) {
+        numCardsText.text = numCards.ToString();
+    }
+
+    private void LobbyManager_OnLobbyUpdated(object sender, System.EventArgs e) {
+        lobby = LobbyManager.Instance.GetLobby();
+        lobbyCode.text = lobby.LobbyCode;
+
+        if (!LobbyManager.Instance.IsLobbyHost()) {
+            startButton.interactable = false;
+            slider.interactable = false;
         }
+
+        playerJoinedCountText.text = lobby.Players.Count + "/" + MultiplayerManager.Instance.GetMaxPlayerCount();
+    }
+
+    public override void OnDestroy() {
+        base.OnDestroy();
+
+        LobbyManager.Instance.OnLobbyUpdated -= LobbyManager_OnLobbyUpdated;
     }
 }

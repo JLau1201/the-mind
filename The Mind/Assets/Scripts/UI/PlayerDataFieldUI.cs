@@ -3,20 +3,17 @@ using System.Collections.Generic;
 using Unity.Services.Lobbies.Models;
 using UnityEngine;
 
-public class PlayerDataFieldUI : MonoBehaviour
-{
-    [Header("IDK WHAT TO CALL THIS HEADER BUT I LOVE HEADERS")]
+public class PlayerDataFieldUI : MonoBehaviour {
+    [Header("Transforms")]
     [SerializeField] private Transform playerFieldTemplate;
 
     Lobby lobby;
 
     private void Start() {
-        // Subscribe to joined/leave events
-        // Some event calls UpdatePlayerField
-        LobbyManager.Instance.OnLobbyAction += GameLobby_OnLobbyAction;
+        LobbyManager.Instance.OnLobbyUpdated += LobbyManager_OnLobbyUpdated;
     }
 
-    private void GameLobby_OnLobbyAction(object sender, System.EventArgs e) {
+    private void LobbyManager_OnLobbyUpdated(object sender, System.EventArgs e) {
         lobby = LobbyManager.Instance.GetLobby();
         UpdatePlayerField();
     }
@@ -40,7 +37,7 @@ public class PlayerDataFieldUI : MonoBehaviour
                 playerFieldTransform.gameObject.SetActive(true);
                 playerFieldTransform.GetComponent<PlayerDataFieldSingleUI>().SetPlayerDataField(playerName);
             }
-            
+
         }
     }
 }

@@ -3,30 +3,30 @@ using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-public class Card : MonoBehaviour
+public class Card : MonoBehaviour 
 {
-
-    public event EventHandler<OnCardPlacedEventArgs> OnCardPlaced;
-    public class OnCardPlacedEventArgs : EventArgs {
-        public int cardNumber { get; set; }
-    }
-
-    [SerializeField] private TextMeshProUGUI cardNumberText;
-    [SerializeField] private Button placeCardButton;
+    [SerializeField] private List<TextMeshProUGUI> cardNumberTexts;
+    [SerializeField] private Button selectCardButton;
 
     private int cardNumber;
 
     private void Awake() {
-        placeCardButton.onClick.AddListener(() => {
-            OnCardPlaced?.Invoke(this, new OnCardPlacedEventArgs { cardNumber = cardNumber});
-            Destroy(gameObject);
+        selectCardButton.onClick.AddListener(() => {
+            TheMindManager.Instance.SetSelectedCard(this);
         });
     }
 
     public void SetCardNumber(int number) {
         cardNumber = number;
-        cardNumberText.text = number.ToString();
+        foreach (TextMeshProUGUI text in cardNumberTexts) {
+            text.text = number.ToString();
+        }
+    }
+
+    public int GetCardNumber() {
+        return cardNumber;
     }
 }

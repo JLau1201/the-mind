@@ -3,22 +3,24 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class CardHolder : MonoBehaviour
 {
-    public event EventHandler<OnPilePlacedEventArgs> OnPilePlaced;
-    public class OnPilePlacedEventArgs : EventArgs {
-        public int cardNumber { get; set; }
-        public int playerId;
-    }
-
     [Header("Card")]
     [SerializeField] private Transform cardPrefab;
+    [SerializeField] private Button deselectButton;
 
     private List<int> playerHand = new List<int>();
 
     private void Start() {
         TheMindManager.Instance.OnPlayerHandGenerated += TheMindManager_OnPlayerHandGenerated;
+    }
+
+    private void Awake() {
+        deselectButton.onClick.AddListener(() => {
+            TheMindManager.Instance.SetSelectedCard(null);
+        });
     }
 
     private void TheMindManager_OnPlayerHandGenerated(object sender, System.EventArgs e) {
@@ -28,11 +30,6 @@ public class CardHolder : MonoBehaviour
             Transform newCardTransform = Instantiate(cardPrefab, transform);
             Card newCard = newCardTransform.GetComponent<Card>();
             newCard.SetCardNumber(cardNumber);
-            newCard.OnCardPlaced += NewCard_OnCardPlaced;
         }
-    }
-
-    private void NewCard_OnCardPlaced(object sender, Card.OnCardPlacedEventArgs e) {
-        OnPilePlaced?.Invoke(this, new OnPilePlacedEventArgs { cardNumber = e.cardNumber, playerId = MultiplayerManager.Instance.GetPlayerId() });
     }
 }
